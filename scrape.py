@@ -1,8 +1,11 @@
+import os
+import time
+import logging
+from typing import Generator
+
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
-
-import time
 
 
 def read_txt(file: str) -> str:
@@ -12,19 +15,28 @@ def read_txt(file: str) -> str:
         return lines[0]
 
 
+def killer(application: str) -> None:
+    """Function for killing running processes."""
+    os.system(f"taskkill /f /im {application}")
+    logging.info(f"Application {application} sucessefully killed.")
+
+
 LOGIN = read_txt("login.txt")
 PASSWORD = read_txt("pass.txt")
 LOGIN_URL = "https://thenidiel.eu/login"
 LOGOUT_URL = "https://thenidiel.eu/logout"
 TIME = 1
 
-options = webdriver.ChromeOptions()
-options.add_argument("--start-maximized")
 
-driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=options)
+def set_scraper() -> None:
+    options = webdriver.ChromeOptions()
+    options.add_argument("--start-maximized")
+    driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=options)
+
+    return driver
 
 
-def site_login() -> None:
+def site_login(driver) -> None:
     """Function for login."""
     driver.get(LOGIN_URL)
     driver.find_element_by_id("email").send_keys(LOGIN)
@@ -33,7 +45,7 @@ def site_login() -> None:
     driver.find_element_by_class_name("btn.btn-dark").click()
 
 
-def site_logout() -> None:
+def site_logout(driver) -> None:
     """Function for logout."""
     time.sleep(TIME)
     driver.find_element_by_css_selector(
@@ -41,15 +53,16 @@ def site_logout() -> None:
     ).click()
     time.sleep(TIME)
     driver.find_element_by_xpath("//a[contains(., 'Logout')]").click()
+    logging.info("Webscraping finished.")
 
 
-def get_mail_link() -> str:
+def get_mail_link(driver) -> Generator:
     "Function for getting urls for emails."
     time.sleep(TIME)
     last_page = driver.find_elements_by_css_selector("ul.pagination> li")[-2].text
     PAGE_URLS = []
 
-    for number in range(1, int(last_page)):
+    for number in range(1, 2):  # int(last_page)):
         page_url = "https://thenidiel.eu/filter?page=" + str(number)
         PAGE_URLS.append(page_url)
 
@@ -65,12 +78,12 @@ def get_mail_link() -> str:
             yield adresa
 
 
-def scrape_mail() -> str:
+def scrape_mail(driver) -> None:
     """Function returns Subject, Date, Abstract, Source, Link, Tags,
     Link, Mentioned characters, Body, Attachment links and Duplicate emails of the mail.
     If on of them is missing, returns empty string."""
 
-    for email in list(get_mail_link()):
+    for email in list(get_mail_link(driver)):
         driver.get(email)
 
         try:
@@ -139,15 +152,47 @@ def scrape_mail() -> str:
         except NoSuchElementException:
             mentioned_list = []
 
-    result = [date, subject, abstract, source, link, tag_list, mentioned_list]
+        try:
+            body_child = driver.find_element_by_xpath(
+                "//strong[contains(text(), 'Body:')]"
+            )
+            body = (
+                body_child.find_element_by_xpath("..").text.replace("Body:", "").strip()
+            )
+        except NoSuchElementException:
+            body = ""
+
+        try:
+            duplicate_date = driver.find_element_by_xpath(
+                "//*[@id='main-container']/main/div/div/div[1]/div/div[8]/div/table/tbody/tr/td[3]"
+            ).text
+
+        except NoSuchElementException:
+            duplicate_date = ""
+
+        result = {
+            "result_date": date,
+            "result_subject": subject,
+            "result_abstract": abstract,
+            "result_source": source,
+            "result_link": link,
+            "result_tag_list": tag_list,
+            "result_mentioned_list": mentioned_list,
+            "result_body": body,
+            "result_duplicate_date": duplicate_date,
+        }
+
+        print(result)
 
 
 def main():
     """Main function that is call when the script is run."""
-    site_login()
-    get_mail_link()
-    scrape_mail()
-    site_logout()
+    killer("chrome.exe")
+    driver = set_scraper()
+    site_login(driver)
+    get_mail_link(driver)
+    scrape_mail(driver)
+    site_logout(driver)
 
 
 if __name__ == "__main__":
