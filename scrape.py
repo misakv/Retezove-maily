@@ -1,4 +1,3 @@
-import os
 import time
 import logging
 from typing import Generator
@@ -7,25 +6,15 @@ from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
 
-
-def read_txt(file: str) -> str:
-    """Function reads from txt file."""
-    with open(file) as f:
-        lines = f.readlines()
-        return lines[0]
+import utils
 
 
-def killer(application: str) -> None:
-    """Function for killing running processes."""
-    os.system(f"taskkill /f /im {application}")
-    logging.info(f"Application {application} sucessefully killed.")
-
-
-LOGIN = read_txt("login.txt")
-PASSWORD = read_txt("pass.txt")
+LOGIN = utils.read_txt("login.txt")
+PASSWORD = utils.read_txt("pass.txt")
 LOGIN_URL = "https://thenidiel.eu/login"
 LOGOUT_URL = "https://thenidiel.eu/logout"
 TIME = 1
+OUTPUT_FILE = "output.csv"
 
 
 def set_scraper() -> None:
@@ -78,7 +67,7 @@ def get_mail_link(driver) -> Generator:
             yield adresa
 
 
-def scrape_mail(driver) -> None:
+def scrape_mail(driver) -> Generator:
     """Function returns Subject, Date, Abstract, Source, Link, Tags,
     Link, Mentioned characters, Body, Attachment links and Duplicate emails of the mail.
     If on of them is missing, returns empty string."""
@@ -183,16 +172,34 @@ def scrape_mail(driver) -> None:
         }
 
         print(result)
+        yield result
+
+
+def save_result(driver) -> None:
+    for result in scrape_mail(driver):
+        save = [
+            result["result_date"],
+            result["result_subject"],
+            result["result_abstract"],
+            result["result_source"],
+            result["result_link"],
+            result["result_tag_list"],
+            result["result_mentioned_list"],
+            result["result_body"],
+            result["result_duplicate_date"],
+        ]
+        utils.write_csv(OUTPUT_FILE, save)
 
 
 def main():
     """Main function that is call when the script is run."""
-    killer("chrome.exe")
+    utils.killer("chrome.exe")
     driver = set_scraper()
     site_login(driver)
     get_mail_link(driver)
     scrape_mail(driver)
-    site_logout(driver)
+    save_result(driver)
+    # site_logout(driver)
 
 
 if __name__ == "__main__":
