@@ -1,11 +1,13 @@
 """Modul containing help functions."""
 import csv
-import os
 import logging
+import os
+import os.path
+from typing import Generator
 
 ENCODING = "utf-8"
 DELIMINER = ";"
-NEWLINE = ""
+NEWLINE = "\n"
 
 
 def killer(application: str) -> None:
@@ -18,11 +20,33 @@ def write_csv(file_name: str, input: list) -> None:
     """Function for writing into csv file."""
     with open(file_name, mode="a", encoding=ENCODING, newline=NEWLINE) as csv_file:
         csv_writer = csv.writer(csv_file, delimiter=DELIMINER)
-        csv_writer.writerow(input)
+        csv_writer.writerow([input][0])
 
 
-def read_txt(file: str) -> str:
+def generate_txt(file_name: str) -> Generator:
+    """Function generetes entries from csv file."""
+    with open(file_name) as file:
+        rows = file.readlines()
+        for row in rows:
+            yield row
+
+
+def read_txt(file_name: str) -> str:
     """Function reads from txt file."""
-    with open(file) as f:
-        lines = f.readlines()
+    with open(file_name) as file:
+        lines = file.readlines()
         return lines[0]
+
+
+def write_txt(file_name: str, input: str) -> None:
+    """Function appends into txt file."""
+    with open(file_name, "a") as file:
+        file.write(input + ",")
+
+
+def remove(file_name: str) -> None:
+    """Function for removing a file."""
+    if os.path.exists(file_name):
+        os.remove(file_name)
+    else:
+        print(f"'{file_name}' does not exist!")

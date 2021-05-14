@@ -1,13 +1,20 @@
-import time
+"""Main module for scraping of fake emails from the database.
+
+OS: Windows 10 64-bit
+built in Python 3.9.2
+"""
+
+
 import logging
+import os
+import time
 from typing import Generator
 
 from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
+from webdriver_manager.chrome import ChromeDriverManager
 
 import utils
-
 
 LOGIN = utils.read_txt("login.txt")
 PASSWORD = utils.read_txt("pass.txt")
@@ -15,9 +22,15 @@ LOGIN_URL = "https://thenidiel.eu/login"
 LOGOUT_URL = "https://thenidiel.eu/logout"
 TIME = 1
 OUTPUT_FILE = "output.csv"
+PAGE_URLS = "page_urls.txt"
+MAIL_URLS = "mail_urls.txt"
 
 
-def set_scraper() -> None:
+def set_scraper():
+    """Function kills running applications and set up the ChromeDriver."""
+    utils.killer("chrome.exe")
+    utils.killer("excel.exe")
+
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
     driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=options)
@@ -38,7 +51,7 @@ def site_logout(driver) -> None:
     """Function for logout."""
     time.sleep(TIME)
     driver.find_element_by_css_selector(
-        "ul.navbar-nav.mr-auto> li:nth-child(3)> a.nav-link.dropdown-toggle"
+        "ul.navbar-nav.mr-auto> li:nth-child(4)> a.nav-link.dropdown-toggle"
     ).click()
     time.sleep(TIME)
     driver.find_element_by_xpath("//a[contains(., 'Logout')]").click()
@@ -46,16 +59,15 @@ def site_logout(driver) -> None:
 
 
 def get_mail_link(driver) -> Generator:
-    "Function for getting urls for emails."
+    """Function for getting urls for emails."""
     time.sleep(TIME)
     last_page = driver.find_elements_by_css_selector("ul.pagination> li")[-2].text
-    PAGE_URLS = []
 
-    for number in range(1, 2):  # int(last_page)):
-        page_url = "https://thenidiel.eu/filter?page=" + str(number)
-        PAGE_URLS.append(page_url)
+    for suffix in range(1, int(last_page)):
+        page_url = "https://thenidiel.eu/filter?page=" + str(suffix)
+        utils.write_txt(PAGE_URLS, page_url)
 
-    for page in PAGE_URLS:
+    for page in utils.generate_txt(PAGE_URLS):
         driver.get(page)
 
         urls = driver.find_elements_by_css_selector(
@@ -64,7 +76,22 @@ def get_mail_link(driver) -> Generator:
 
         for url in urls:
             adresa = url.get_attribute("href")
+
             yield adresa
+
+
+def is_scraped(email: str, existing_file: str) -> bool:
+    """Function checks if email url is contained in existing_file."""
+    if os.path.exists(existing_file):
+        with open(existing_file) as file:
+            content = file.readlines()
+            emails = content[0].split(",")
+            if email in emails:
+                return True
+            return False
+    else:
+        utils.write_txt(MAIL_URLS, email)
+        return False
 
 
 def scrape_mail(driver) -> Generator:
@@ -72,110 +99,127 @@ def scrape_mail(driver) -> Generator:
     Link, Mentioned characters, Body, Attachment links and Duplicate emails of the mail.
     If on of them is missing, returns empty string."""
 
-    for email in list(get_mail_link(driver)):
-        driver.get(email)
+    for mail in list(get_mail_link(driver)):
+        if not is_scraped(mail, existing_file=MAIL_URLS):
+            driver.get(mail)
 
-        try:
-            date_child = driver.find_element_by_xpath(
-                "//strong[contains(text(), 'Date:')]"
-            )
-            date = (
-                date_child.find_element_by_xpath("..").text.replace("Date:", "").strip()
-            )
-        except NoSuchElementException:
-            date = ""
+            print(f"I am scraping: '{mail}'")
 
-        try:
-            subject_child = driver.find_element_by_xpath(
-                "//strong[contains(text(), 'Subject:')]"
-            )
-            subject = (
-                subject_child.find_element_by_xpath("..")
-                .text.replace("Subject:", "")
-                .strip()
-            )
-        except NoSuchElementException:
-            subject = ""
+            try:
+                date_child = driver.find_element_by_xpath(
+                    "//strong[contains(text(), 'Date:')]"
+                )
+                date = (
+                    date_child.find_element_by_xpath("..")
+                    .text.replace("Date:", "")
+                    .strip()
+                )
+            except NoSuchElementException:
+                date = ""
 
-        try:
-            abstract_child = driver.find_element_by_xpath(
-                "//strong[contains(text(), 'Abstract:')]"
-            )
-            abstract = (
-                abstract_child.find_element_by_xpath("..")
-                .text.replace("Abstract:", "")
-                .strip()
-            )
-        except NoSuchElementException:
-            abstract = ""
-        try:
-            source_child = driver.find_element_by_xpath(
-                "//strong[contains(text(), 'Source:')]"
-            )
-            source = (
-                source_child.find_element_by_xpath("..")
-                .text.replace("Source:", "")
-                .strip()
-            )
-        except NoSuchElementException:
-            source = ""
-        try:
-            link_child = driver.find_element_by_xpath(
-                "//strong[contains(text(), 'Link:')]"
-            )
-            link = (
-                link_child.find_element_by_xpath("..").text.replace("Link:", "").strip()
-            )
-        except NoSuchElementException:
-            link = ""
+            try:
+                subject_child = driver.find_element_by_xpath(
+                    "//strong[contains(text(), 'Subject:')]"
+                )
+                subject = (
+                    subject_child.find_element_by_xpath("..")
+                    .text.replace("Subject:", "")
+                    .strip()
+                )
+            except NoSuchElementException:
+                subject = ""
 
-        try:
-            tag = driver.find_element_by_id("tags_container").text
-            tag_list = tag.split(" ")
-        except NoSuchElementException:
-            tag_list = []
+            try:
+                abstract_child = driver.find_element_by_xpath(
+                    "//strong[contains(text(), 'Abstract:')]"
+                )
+                abstract = (
+                    abstract_child.find_element_by_xpath("..")
+                    .text.replace("Abstract:", "")
+                    .strip()
+                )
+            except NoSuchElementException:
+                abstract = ""
+            try:
+                source_child = driver.find_element_by_xpath(
+                    "//strong[contains(text(), 'Source:')]"
+                )
+                source = (
+                    source_child.find_element_by_xpath("..")
+                    .text.replace("Source:", "")
+                    .strip()
+                )
+            except NoSuchElementException:
+                source = ""
+            try:
+                link_child = driver.find_element_by_xpath(
+                    "//strong[contains(text(), 'Link:')]"
+                )
+                link = (
+                    link_child.find_element_by_xpath("..")
+                    .text.replace("Link:", "")
+                    .strip()
+                )
+            except NoSuchElementException:
+                link = ""
 
-        try:
-            mentioned = driver.find_element_by_id("characters_container").text
-            mentioned_list = mentioned.split(" ")
-        except NoSuchElementException:
-            mentioned_list = []
+            try:
+                tag = driver.find_element_by_id("tags_container").text
+                tag_list = tag.split(" ")
+            except NoSuchElementException:
+                tag_list = []
 
-        try:
-            body_child = driver.find_element_by_xpath(
-                "//strong[contains(text(), 'Body:')]"
-            )
-            body = (
-                body_child.find_element_by_xpath("..").text.replace("Body:", "").strip()
-            )
-        except NoSuchElementException:
-            body = ""
+            try:
+                mentioned_parent = driver.find_element_by_id("characters_container")
+                mentioned = mentioned_parent.find_elements_by_tag_name("a")
+                mentioned_list = []
 
-        try:
-            duplicate_date = driver.find_element_by_xpath(
-                "//*[@id='main-container']/main/div/div/div[1]/div/div[8]/div/table/tbody/tr/td[3]"
-            ).text
+                for body in mentioned:
+                    mentioned_list.append(body.text)
 
-        except NoSuchElementException:
-            duplicate_date = ""
+            except NoSuchElementException:
+                mentioned_list = []
 
-        result = {
-            "result_date": date,
-            "result_subject": subject,
-            "result_abstract": abstract,
-            "result_source": source,
-            "result_link": link,
-            "result_tag_list": tag_list,
-            "result_mentioned_list": mentioned_list,
-            "result_body": body,
-            "result_duplicate_date": duplicate_date,
-        }
+            try:
+                body_child = driver.find_element_by_xpath(
+                    "//strong[contains(text(), 'Body:')]"
+                )
+                body = (
+                    body_child.find_element_by_xpath("..")
+                    .text.replace("Body:", "")
+                    .strip()
+                )
+            except NoSuchElementException:
+                body = ""
 
-        print(result)
-        yield result
+            try:
+                duplicate_date = driver.find_element_by_xpath(
+                    "//*[@id='main-container']/main/div/div/div[1]/div/div[8]/div/table/tbody/tr/td[3]"
+                ).text
+
+            except NoSuchElementException:
+                duplicate_date = ""
+
+            result = {
+                "result_date": date,
+                "result_subject": subject,
+                "result_abstract": abstract,
+                "result_source": source,
+                "result_link": link,
+                "result_tag_list": tag_list,
+                "result_mentioned_list": mentioned_list,
+                "result_body": body,
+                "result_duplicate_date": duplicate_date,
+                "result_email_link": mail,
+            }
+
+            yield result
+        else:
+            print(f"This email has been already scraped: '{mail}'")
 
 
 def save_result(driver) -> None:
+    """Function saves results into csv."""
     for result in scrape_mail(driver):
         save = [
             result["result_date"],
@@ -189,17 +233,19 @@ def save_result(driver) -> None:
             result["result_duplicate_date"],
         ]
         utils.write_csv(OUTPUT_FILE, save)
+        utils.write_txt(MAIL_URLS, result["result_email_link"])
 
 
-def main():
+def main() -> None:
     """Main function that is call when the script is run."""
-    utils.killer("chrome.exe")
+
     driver = set_scraper()
     site_login(driver)
     get_mail_link(driver)
     scrape_mail(driver)
     save_result(driver)
-    # site_logout(driver)
+    site_logout(driver)
+    utils.remove(PAGE_URLS)
 
 
 if __name__ == "__main__":

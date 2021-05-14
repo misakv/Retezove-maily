@@ -1,4 +1,6 @@
-Retezove-maily
-Aplikace metod strojového učení na detekci řetězových fake news zpráv. Postupně zde budou přibývat scripty v Pythonu a komentář s výsledky.
+# Fake mails
+The goal of this project is to develop a machine learning based mechanism for detection of fake news e-mails. <br>
+First part of this project is focusing on web scraping of fake emails from a database made by Czech elves (Čeští elfové).<br>
+Second part, that is under development right now, is a machine learning algorithm for detecting fake news emails.<br>
 
-Pokud máte zájem se do tohoto projektu zapojit, budu rád. V takovém případě mě prosím kontaktujte na analyza (puntík) fakenews (takové to divné á) gmail (zase puntík) com. Napište prosím stručně, jak byste se rádi zapojili.
+If you want to contribute to this project, I will be more than happy. Please write me at analyza (dot) fakenews (at) gmail (again dot) com.<br>

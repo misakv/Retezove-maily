@@ -1,5 +1,7 @@
 login.txt
 pass.txt
+output.csv
+mail_urls.txt
 .vscode/settings.json
 .mypy_cache
 __pycache__
