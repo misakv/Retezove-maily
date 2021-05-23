@@ -68,7 +68,8 @@ def get_mail_link(driver) -> Generator:
         utils.write_txt(PAGE_URLS, page_url)
 
     for page in utils.generate_txt(PAGE_URLS):
-        driver.get(page)
+        if page != "":
+            driver.get(page)
 
         urls = driver.find_elements_by_css_selector(
             "tbody.email_table> tr> td:nth-child(1)> a"
@@ -104,6 +105,7 @@ def scrape_mail(driver) -> Generator:
             driver.get(mail)
 
             print(f"I am scraping: '{mail}'")
+            time.sleep(TIME)
 
             try:
                 date_child = driver.find_element_by_xpath(

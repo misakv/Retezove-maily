@@ -13,7 +13,7 @@ NEWLINE = "\n"
 def killer(application: str) -> None:
     """Function for killing running processes."""
     os.system(f"taskkill /f /im {application}")
-    logging.info(f"Application {application} sucessefully killed.")
+    logging.info(f"Application `{application}` sucessefully killed.")
 
 
 def write_csv(file_name: str, input: list) -> None:
@@ -25,8 +25,9 @@ def write_csv(file_name: str, input: list) -> None:
 
 def generate_txt(file_name: str) -> Generator:
     """Function generetes entries from csv file."""
-    with open(file_name) as file:
-        rows = file.readlines()
+    with open(file_name, mode="r") as file:
+        rows_read = file.readlines()
+        rows = rows_read[0].split(DELIMINER)
         for row in rows:
             yield row
 
@@ -41,7 +42,7 @@ def read_txt(file_name: str) -> str:
 def write_txt(file_name: str, input: str) -> None:
     """Function appends into txt file."""
     with open(file_name, "a") as file:
-        file.write(input + ",")
+        file.write(input + DELIMINER)
 
 
 def remove(file_name: str) -> None:
